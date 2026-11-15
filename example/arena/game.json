@@ -1,0 +1,8 @@
+{
+  "id": "arena",
+  "name": "Arena",
+  "version": "1.0.0",
+  "maxPlayers": 8,
+  "tickRate": 30,
+  "netRate": 20
+}

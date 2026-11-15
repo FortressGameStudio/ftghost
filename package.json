@@ -1,0 +1,15 @@
+{
+  "name": "fortress-ghost",
+  "version": "0.1.0",
+  "description": "Fortress Ghost: multiplayer session host, client libraries and the beefeater deploy agent.",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "host": "node host/cli.js --game example/arena --port 7777",
+    "test": "node tests/run.js && node tests/beefeater.js",
+    "beefeater": "node beefeater/cli.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
