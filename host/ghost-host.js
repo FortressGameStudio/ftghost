@@ -59,6 +59,18 @@ class GhostHost extends EventEmitter {
     };
   }
 
+  /* Lets the person running the host open or close the lobby (the server half can do the same). */
+  setAccepting(value) {
+    this.accepting = !!value;
+    this.emit('change');
+  }
+
+  playerList() {
+    const out = [];
+    this.clients.forEach((c) => out.push({ id: c.id, name: c.name }));
+    return out;
+  }
+
   isAccepting() { return this.accepting && !this.draining && !this.stopped && this.clients.size < this.config.maxPlayers; }
 
   start() {
@@ -74,6 +86,7 @@ class GhostHost extends EventEmitter {
       });
       this.wss = new WebSocketServer({ server: this.http, maxPayload: this.opts.maxMessageBytes });
       this.wss.on('connection', (ws) => this.onConnection(ws));
+      this.wss.on('error', () => { /* listen errors are reported through start() */ });
 
       this.worker = new Worker(path.join(__dirname, 'sandbox-worker.js'), {
         workerData: { serverCode: this.serverCode, config: Object.assign({}, this.config, { callbackTimeoutMs: this.opts.callbackTimeoutMs }) },
@@ -108,7 +121,7 @@ class GhostHost extends EventEmitter {
   onWorker(m) {
     switch (m.t) {
       case 'heartbeat': this.lastHeartbeat = Date.now(); break;
-      case 'accepting': this.accepting = !!m.value; this.log('log', 'accepting players: ' + this.accepting); break;
+      case 'accepting': this.accepting = !!m.value; this.log('log', 'accepting players: ' + this.accepting); this.emit('change'); break;
       case 'log': this.log(m.level, m.text); break;
       case 'broadcast':
         this.clients.forEach((c) => { if (c.synced) this.sendRaw(c, m.msg); });
@@ -170,6 +183,7 @@ class GhostHost extends EventEmitter {
         this.worker.postMessage({ t: 'disconnect', id: c.id });
         if (this.clients.size === 0) this.emptySince = Date.now();
         this.emit('leave', c.id);
+        this.emit('change');
         if (this.draining && this.clients.size === 0) this.stop('drained');
       }
     });
@@ -198,6 +212,7 @@ class GhostHost extends EventEmitter {
     }));
     this.worker.postMessage({ t: 'connect', id: c.id, info: { name } });
     this.emit('join', c.id, name);
+    this.emit('change');
   }
 
   onClientMessage(c, m) {

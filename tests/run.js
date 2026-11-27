@@ -280,6 +280,35 @@ async function testSandbox() {
   }
 }
 
+async function testHostControls() {
+  const host = hostFor('server.update = function(){};');
+  await host.start();
+  const a = connect(host.port, 'Ada');
+  await until(() => a.ready);
+  check('host.playerList lists who is connected', host.playerList().length === 1 && host.playerList()[0].name === 'Ada');
+  let changes = 0;
+  host.on('change', () => changes++);
+  host.setAccepting(false);
+  const b = connect(host.port, 'Bo');
+  check('host.setAccepting(false) turns new players away', await until(() => b.rejected === 'not_accepting') && changes >= 1);
+  host.setAccepting(true);
+  const c = connect(host.port, 'Cy');
+  check('host.setAccepting(true) lets players in again', await until(() => c.ready));
+  [a, b, c].forEach((x) => x.close());
+  await host.stop('done');
+}
+
+async function testBusyPort() {
+  const h1 = hostFor('server.update = function(){};');
+  await h1.start();
+  const h2 = hostFor('server.update = function(){};', {}, { port: h1.port });
+  let err = null;
+  await h2.start().catch((e) => { err = e; });
+  check('a busy port makes start() fail cleanly instead of crashing', err && err.code === 'EADDRINUSE');
+  await h2.stop('done');
+  await h1.stop('done');
+}
+
 async function testWatchdog() {
   const host = hostFor('server.update = function(){};');
   let reason = null;
@@ -311,6 +340,8 @@ async function testDrain() {
     await testArena();
     await testAbuse();
     await testSandbox();
+    await testHostControls();
+    await testBusyPort();
     await testWatchdog();
     await testDrain();
   } catch (e) {
